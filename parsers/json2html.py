@@ -56,46 +56,45 @@ def parse_list(json_list: list) -> str:
     color_class=""
 
     for i in json_list:
-        if "═══" not in i['clean_text']:
-            if(i['clean_text']):
-                color_text+= "<div class = \""
-                text = str(i['clean_text'])
-                for color in i['colors']:
-                    if(color=='BLUE'):
-                        style = "#0000FF"
-                        color_class = "blue"
-                    if(color=='LIGHT_GREY'):
-                        style = "#adadad"
-                        color_class = "light_grey"
-                    if(color=='REDYELLOW'):
-                        style = "#FF0000; background-color: #FFFF00;"
-                        color_class = "redyellow"
-                    if(color=='RED'):
-                        style = "#FF0000"
-                        color_class = "red"
-                    if(color=='GREEN'):
-                        style = "#008000"
-                        color_class = "green"
-                    if(color=='MAGENTA'):
-                        style = "#FF00FF"
-                        color_class = "magenta"
-                    if(color=='YELLOW'):
-                        style = "#FFFF00"
-                        color_class = "yellow"
-                    if(color=='DARKGREY'):
-                        style = "#A9A9A9"
-                        color_class = "darkgrey"
-                    if(color=='CYAN'):
-                        style = "#00FFFF"
-                        color_class = "cyan"
-                    for replacement in i['colors'][color]:
-                        text=text.replace(replacement," <b style=\"color:"+ style +"\">"+ replacement + "</b>")
-                        #class=\""+ color_class + "\" "+ "
-                        if "═╣" in text:
-                            text=text.replace("═╣","<li>")
-                            text+="</li>"
-                    color_text+=  "" + color_class + " " 
-                color_text +="no_color\" >"+ text + "<br></div>\n"                
+        if "═══" not in i['clean_text'] and i['clean_text']:
+            color_text+= "<div class = \""
+            text = str(i['clean_text'])
+            for color in i['colors']:
+                if color == 'BLUE':
+                    style = "#0000FF"
+                    color_class = "blue"
+                elif color == 'CYAN':
+                    style = "#00FFFF"
+                    color_class = "cyan"
+                elif color == 'DARKGREY':
+                    style = "#A9A9A9"
+                    color_class = "darkgrey"
+                elif color == 'GREEN':
+                    style = "#008000"
+                    color_class = "green"
+                elif color == 'LIGHT_GREY':
+                    style = "#adadad"
+                    color_class = "light_grey"
+                elif color == 'MAGENTA':
+                    style = "#FF00FF"
+                    color_class = "magenta"
+                elif color == 'RED':
+                    style = "#FF0000"
+                    color_class = "red"
+                elif color == 'REDYELLOW':
+                    style = "#FF0000; background-color: #FFFF00;"
+                    color_class = "redyellow"
+                elif color == 'YELLOW':
+                    style = "#FFFF00"
+                    color_class = "yellow"
+                for replacement in i['colors'][color]:
+                    text=text.replace(replacement," <b style=\"color:"+ style +"\">"+ replacement + "</b>")
+                    #class=\""+ color_class + "\" "+ "
+                    if "═╣" in text:
+                        text=text.replace("═╣","<li>")
+                        text+="</li>"
+                color_text += f"{color_class} "
+            color_text +="no_color\" >"+ text + "<br></div>\n"
     return color_text + "\t\t\t</div>\n"
 
 

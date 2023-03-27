@@ -35,9 +35,9 @@ class MyDocTemplate(BaseDocTemplate):
             style = flowable.style.name
             if style == "Heading1":
                 self.notify("TOCEntry", (0, text, self.page))
-            if style == "Heading2":
+            elif style == "Heading2":
                 self.notify("TOCEntry", (1, text, self.page))
-            if style == "Heading3":
+            elif style == "Heading3":
                 self.notify("TOCEntry", (2, text, self.page))
       
 
@@ -45,22 +45,30 @@ class MyDocTemplate(BaseDocTemplate):
 def get_level_styles(level):
     global styles
     indent_value = 10 * (level - 1);
-    # Overriding some default stylings
-    level_styles = { 
+    return {
         "title": ParagraphStyle(
-          **dict(styles[f"Heading{level}"].__dict__,
-          **{ "leftIndent": indent_value })),
+            **dict(
+                styles[f"Heading{level}"].__dict__,
+                **{"leftIndent": indent_value},
+            )
+        ),
         "text": ParagraphStyle(
-          **dict(styles["Code"].__dict__,
-          **{ "backColor": "#F0F0F0",
-          "borderPadding": 5, "borderWidth": 1,
-          "borderColor": "black", "borderRadius": 5,
-          "leftIndent": 5 + indent_value})),
+            **dict(
+                styles["Code"].__dict__,
+                **{
+                    "backColor": "#F0F0F0",
+                    "borderPadding": 5,
+                    "borderWidth": 1,
+                    "borderColor": "black",
+                    "borderRadius": 5,
+                    "leftIndent": 5 + indent_value,
+                },
+            )
+        ),
         "info": ParagraphStyle(
-          **dict(styles["Italic"].__dict__,
-          **{ "leftIndent": indent_value })),
+            **dict(styles["Italic"].__dict__, **{"leftIndent": indent_value})
+        ),
     }
-    return level_styles
 
 def get_colors_by_text(colors):
     new_colors = {}

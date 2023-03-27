@@ -3,64 +3,64 @@ import yaml
 
 CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 
-LINPEAS_BASE_PARTS = CURRENT_DIR + "/../linpeas_parts"
+LINPEAS_BASE_PARTS = f"{CURRENT_DIR}/../linpeas_parts"
 LINPEAS_PARTS = [
     {
         "name": "System Information",
         "name_check": "system_information",
-        "file_path": LINPEAS_BASE_PARTS + "/1_system_information.sh"
+        "file_path": f"{LINPEAS_BASE_PARTS}/1_system_information.sh",
     },
     {
         "name": "Container",
         "name_check": "container",
-        "file_path": LINPEAS_BASE_PARTS + "/2_container.sh"
+        "file_path": f"{LINPEAS_BASE_PARTS}/2_container.sh",
     },
     {
         "name": "Cloud",
         "name_check": "cloud",
-        "file_path": LINPEAS_BASE_PARTS + "/3_cloud.sh"
+        "file_path": f"{LINPEAS_BASE_PARTS}/3_cloud.sh",
     },
     {
         "name": "Processes, Crons, Timers, Services and Sockets",
         "name_check": "procs_crons_timers_srvcs_sockets",
-        "file_path": LINPEAS_BASE_PARTS + "/4_procs_crons_timers_srvcs_sockets.sh"
+        "file_path": f"{LINPEAS_BASE_PARTS}/4_procs_crons_timers_srvcs_sockets.sh",
     },
     {
         "name": "Network Information",
         "name_check": "network_information",
-        "file_path": LINPEAS_BASE_PARTS + "/5_network_information.sh"
+        "file_path": f"{LINPEAS_BASE_PARTS}/5_network_information.sh",
     },
     {
         "name": "Users Information",
         "name_check": "users_information",
-        "file_path": LINPEAS_BASE_PARTS + "/6_users_information.sh"
+        "file_path": f"{LINPEAS_BASE_PARTS}/6_users_information.sh",
     },
     {
         "name": "Software Information",
         "name_check": "software_information",
-        "file_path": LINPEAS_BASE_PARTS + "/7_software_information.sh"
+        "file_path": f"{LINPEAS_BASE_PARTS}/7_software_information.sh",
     },
     {
         "name": "Interesting Files",
         "name_check": "interesting_files",
-        "file_path": LINPEAS_BASE_PARTS + "/8_interesting_files.sh"
+        "file_path": f"{LINPEAS_BASE_PARTS}/8_interesting_files.sh",
     },
     {
         "name": "API Keys Regex",
         "name_check": "api_keys_regex",
-        "file_path": LINPEAS_BASE_PARTS + "/9_api_keys_regex.sh"
-    }
+        "file_path": f"{LINPEAS_BASE_PARTS}/9_api_keys_regex.sh",
+    },
 ]
 
 
-LINPEAS_BASE_PATH = LINPEAS_BASE_PARTS + "/linpeas_base.sh"
-TEMPORARY_LINPEAS_BASE_PATH = CURRENT_DIR + "/../linpeas_base.sh"
-FINAL_FAT_LINPEAS_PATH = CURRENT_DIR + "/../../" + "linpeas_fat.sh"
-FINAL_LINPEAS_PATH = CURRENT_DIR + "/../../" + "linpeas.sh"
+LINPEAS_BASE_PATH = f"{LINPEAS_BASE_PARTS}/linpeas_base.sh"
+TEMPORARY_LINPEAS_BASE_PATH = f"{CURRENT_DIR}/../linpeas_base.sh"
+FINAL_FAT_LINPEAS_PATH = f"{CURRENT_DIR}/../../linpeas_fat.sh"
+FINAL_LINPEAS_PATH = f"{CURRENT_DIR}/../../linpeas.sh"
 YAML_NAME = "sensitive_files.yaml"
 YAML_REGEXES = "regexes.yaml"
-FILES_YAML = CURRENT_DIR + "/../../../build_lists/" + YAML_NAME
-REGEXES_YAML = CURRENT_DIR + "/../../../build_lists/" + YAML_REGEXES
+FILES_YAML = f"{CURRENT_DIR}/../../../build_lists/{YAML_NAME}"
+REGEXES_YAML = f"{CURRENT_DIR}/../../../build_lists/{YAML_REGEXES}"
 
 
 with open(FILES_YAML, 'r') as file:
