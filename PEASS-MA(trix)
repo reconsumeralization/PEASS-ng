@@ -1,0 +1,59 @@
+import curses
+import time
+
+# Define the matrix of letters
+matrix = [
+    ["W", "N", "D", "O", "W", "S", "I", "N", "F", "O", "R", "M", "A", "T"],
+    ["I", "F", "O", "T", "I", "Y", "I", "I", "L", "T", "G", "N", "E", "L"],
+    ["N", "O", "L", "E", "A", "S", "", "N", "", "E", "", "S", "", ""],
+    ["P", "T", "I", "N", "L", "A", "", "T", "", "S", "", "C", "", ""],
+    ["E", "E", "", "T", "", "L", "", "I", "", "C", "", "A", "", ""],
+    ["A", "S", "T", "I", "L", "S", "", "O", "", "A", "", "L", "", ""],
+    ["S", "", "", "O", "", "", "", "N", "", "L", "", "A", "", ""],
+]
+
+# Define the time intervals for scrolling each row
+intervals = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
+
+# Initialize the curses library
+scr = curses.initscr()
+
+# Hide the cursor
+curses.curs_set(0)
+
+# Define the colors
+curses.start_color()
+curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
+curses.init_pair(2, curses.COLOR_WHITE, curses.COLOR_BLACK)
+
+# Define the main animation loop
+while True:
+    # Clear the screen
+    scr.clear()
+
+    # Calculate the time delta since the animation started
+    delta = time.monotonic() % sum(intervals)
+
+    # Draw each row of the matrix with the appropriate offset
+    for i, row in enumerate(matrix):
+        # Calculate the offset for this row based on the time delta
+        offset = delta - sum(intervals[:i])
+
+        # Compute the start and end indices for this row
+        start_idx = int(offset) % len(row)
+        end_idx = start_idx + len(row)
+
+        # Draw the row, wrapping around at the end
+        for j in range(start_idx, end_idx):
+            letter = row[j % len(row)]
+            color = 1 if j >= start_idx + len(row) - 3 else 2
+            scr.addstr(i, j - start_idx, letter, curses.color_pair(color))
+
+    # Refresh the screen
+    scr.refresh()
+
+    # Wait for a short time before updating the animation
+    time.sleep(0.01)
+
+# Restore the terminal settings
+curses.endwin()
