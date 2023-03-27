@@ -43,7 +43,7 @@ def is_section(line: str, pattern: str) -> bool:
 
     Checks if line matches the pattern and returns True or False
     """
-    return line.find(pattern) > -1 
+    return pattern in line 
 
 def get_colors(line: str) -> dict:
     """Given a line return the colored strings"""
@@ -53,11 +53,11 @@ def get_colors(line: str) -> dict:
         colors[c] = []
         for reg in regexs:
             split_color = line.split(reg)
-            
+
             # Start from the index 1 as the index 0 isn't colored
             if split_color and len(split_color) > 1:
                 split_color = split_color[1:]
-                
+
                 # For each potential color, find the string before any possible color terminatio
                 for potential_color_str in split_color:
                     color_str1 = potential_color_str.split('\x1b')[0]
@@ -67,12 +67,14 @@ def get_colors(line: str) -> dict:
                     if color_str:
                         color_str = clean_colors(color_str.strip())
                         #Avoid having the same color for the same string
-                        if color_str and not any(color_str in values for values in colors.values()):
-                            colors[c].append(color_str)
-        
+                    if color_str and all(
+                        color_str not in values for values in colors.values()
+                    ):
+                        colors[c].append(color_str)
+
         if not colors[c]:
             del colors[c]
-    
+
     return colors
 
 def clean_title(line: str) -> str:
@@ -89,10 +91,9 @@ def clean_colors(line: str) -> str:
 
     for reg in re.findall(r'\x1b\[[^a-zA-Z]+\dm', line):
         line = line.replace(reg,"")
-    
+
     line = line.replace('\x1b',"").replace("[0m", "").replace("[3m", "") #Sometimes that byte stays
-    line = line.strip()
-    return line
+    return line.strip()
 
 
 def parse_title(line: str) -> str:
@@ -114,7 +115,7 @@ def parse_line(line: str):
         FINAL_JSON[title] = { "sections": {}, "lines": [], "infos": [] }
         C_MAIN_SECTION = FINAL_JSON[title]
         C_SECTION = C_MAIN_SECTION
-    
+
     elif is_section(line, TITLE2_PATTERN):
         title = parse_title(line)
         C_MAIN_SECTION["sections"][title] = { "sections": {}, "lines": [], "infos": [] }
@@ -130,13 +131,11 @@ def parse_line(line: str):
     elif is_section(line, INFO_PATTERN):
         title = parse_title(line)
         C_SECTION["infos"].append(title)
-    
-    #If here, then it's text
-    else:
-        #If no main section parsed yet, pass
-        if C_SECTION == {}:
-            return
 
+    elif C_SECTION == {}:
+        return
+
+    else:
         C_SECTION["lines"].append({
             "raw_text": line,
             "colors": get_colors(line),
@@ -145,7 +144,7 @@ def parse_line(line: str):
 
 
 def main():
-    for line in open(OUTPUT_PATH, 'r', encoding="utf8").readlines():
+    for line in open(OUTPUT_PATH, 'r', encoding="utf8"):
         line = line.strip()
         if not line or not clean_colors(line): #Remove empty lines or lines just with colors hex
             continue

@@ -83,7 +83,7 @@ class LinpeasBuilder:
                 self.__replace_mark(mark, list(bash_lines), "")
             else:
                 self.__replace_mark(EXTRASECTIONS_MARKUP, [bash_lines, EXTRASECTIONS_MARKUP], "\n\n")
-        
+
         self.__replace_mark(EXTRASECTIONS_MARKUP, list(""), "") #Delete extra markup
 
         print("[+] Building regexes searches...")
@@ -101,7 +101,7 @@ class LinpeasBuilder:
         print("[+] Downloading Fat Linpeas binaries...")
         aimcont_b64 = self.__get_bin("https://github.com/genuinetools/amicontained/releases/latest/download/amicontained-linux-amd64")
         self.__replace_mark(FAT_LINPEAS_AMICONTAINED_MARKUP, list(aimcont_b64), "")
-        
+
         gitleaks_b64 = self.__get_bin("https://github.com/zricethezav/gitleaks/releases/download/v8.8.7/gitleaks_8.8.7_linux_x64.tar.gz", tar_gz="gitleaks")
         self.__replace_mark(FAT_LINPEAS_GITLEAKS_LINUX_MARKUP, list(gitleaks_b64), "")
 
@@ -114,10 +114,10 @@ class LinpeasBuilder:
         assert len(sudoVB) > 250, f"Len sudo is {len(sudoVB)}"
         assert len(capsVB) > 10, f"Len suidVB is {len(capsVB)}"
 
-        self.__replace_mark(SUIDVB1_MARKUP, suidVB[:int(len(suidVB)/2)], "|")
-        self.__replace_mark(SUIDVB2_MARKUP, suidVB[int(len(suidVB)/2):], "|")
-        self.__replace_mark(SUDOVB1_MARKUP, sudoVB[:int(len(sudoVB)/2)], "|")
-        self.__replace_mark(SUDOVB2_MARKUP, sudoVB[int(len(sudoVB)/2):], "|")
+        self.__replace_mark(SUIDVB1_MARKUP, suidVB[:len(suidVB) // 2], "|")
+        self.__replace_mark(SUIDVB2_MARKUP, suidVB[len(suidVB) // 2:], "|")
+        self.__replace_mark(SUDOVB1_MARKUP, sudoVB[:len(sudoVB) // 2], "|")
+        self.__replace_mark(SUDOVB2_MARKUP, sudoVB[len(sudoVB) // 2:], "|")
         self.__replace_mark(CAP_SETUID_MARKUP, capsVB, "|")
         self.__replace_mark(CAP_SETGID_MARKUP, capsVB, "|")
 
@@ -125,7 +125,7 @@ class LinpeasBuilder:
         #Check that there arent peass marks left in linpeas
         peass_marks = self.__get_peass_marks()
         assert len(peass_marks) == 0, f"There are peass marks left: {', '.join(peass_marks)}"
-        
+
         #Check for empty seds
         assert 'sed -${E} "s,,' not in self.linpeas_sh
 
@@ -136,24 +136,22 @@ class LinpeasBuilder:
     
     def __generate_variables(self):
         """Generate the variables from the yaml to set into linpeas bash script"""
-        variables_bash = ""
-        for var in YAML_VARIABLES:
-            variables_bash += f"{var['name']}=\"{var['value']}\"\n"
-        
-        return variables_bash
+        return "".join(
+            f"""{var['name']}=\"{var['value']}\"\n""" for var in YAML_VARIABLES
+        )
 
 
     def __get_files_to_search(self):
         """Given a PEASLoaded and find the files that need to be searched on each root folder"""
-        self.dict_to_search = {"d": {}, "f": {}}
-        self.dict_to_search["d"] = {r: set() for r in ROOT_FOLDER}
-        self.dict_to_search["f"] = {r: set() for r in ROOT_FOLDER}
-
+        self.dict_to_search = {
+            "d": {r: set() for r in ROOT_FOLDER},
+            "f": {r: set() for r in ROOT_FOLDER},
+        }
         for precord in self.ploaded.peasrecords:
             for frecord in precord.filerecords:
                 for folder in frecord.search_in:
                     self.dict_to_search[frecord.type][folder].add(frecord.regex)
-                
+
                 if frecord.regex[0] == "." or frecord.regex[:2] == "*.":
                     self.hidden_files.add(frecord.regex.replace("*",""))
 
@@ -161,16 +159,15 @@ class LinpeasBuilder:
     def __generate_finds(self) -> list:
         """Given the regexes to search on each root folder, generate the find command"""
         finds = []
-        
-        finds_custom = []
+
         all_folder_regexes = []
         all_file_regexes = []
-        
+
         for type,searches in self.dict_to_search.items():
             for r,regexes in searches.items():
                 if regexes:
                     find_line = f"{r} "
-                    
+
                     if type == "d": 
                         find_line += "-type d "
                         bash_find_var = f"FIND_DIR_{r[1:].replace('.','').replace('-','_').replace('{ROOT_FOLDER}','').upper()}"
@@ -185,20 +182,19 @@ class LinpeasBuilder:
                     find_line = FIND_TEMPLATE.replace(FIND_LINE_MARKUP, find_line)
                     find_line = f"{bash_find_var}={find_line}"
                     finds.append(find_line)
-        
+
         # Buid folder and files finds when searching in a custom folder
         all_folder_regexes = list(set(all_folder_regexes))
         find_line = '$SEARCH_IN_FOLDER -type d -name \\"' + '\\" -o -name \\"'.join(all_folder_regexes) + '\\"'
         find_line = FIND_TEMPLATE.replace(FIND_LINE_MARKUP, find_line)
         find_line = f"FIND_DIR_CUSTOM={find_line}"
-        finds_custom.append(find_line)
-        
+        finds_custom = [find_line]
         all_file_regexes = list(set(all_file_regexes))
         find_line = '$SEARCH_IN_FOLDER -name \\"' + '\\" -o -name \\"'.join(all_file_regexes) + '\\"'
         find_line = FIND_TEMPLATE.replace(FIND_LINE_MARKUP, find_line)
         find_line = f"FIND_CUSTOM={find_line}"
         finds_custom.append(find_line)
-            
+
         return finds, finds_custom
 
     def __generate_storages(self) -> list:
@@ -208,11 +204,11 @@ class LinpeasBuilder:
         all_f_finds = "$" + "\\n$".join(list(self.bash_find_f_vars) + custom_storages)
         all_d_finds = "$" + "\\n$".join(list(self.bash_find_d_vars) + custom_storages)
         all_finds = "$" + "\\n$".join(list(self.bash_find_f_vars) + list(self.bash_find_d_vars) + custom_storages)
-        
+
         for precord in self.ploaded.peasrecords:
             bash_storage_var = f"PSTORAGE_{precord.bash_name}"
             self.bash_storages.add(bash_storage_var)
-            
+
             #Select the FIND_ variables to search on depending on the type files
             if all(frecord.type == "f" for frecord in precord.filerecords):
                 storage_line = STORAGE_TEMPLATE.replace(STORAGE_LINE_MARKUP, all_f_finds)
@@ -226,23 +222,25 @@ class LinpeasBuilder:
             grep_names = f" | grep -E \"{'|'.join([frecord.regex.replace('.',bsp).replace('*', '.*')+'$' for frecord in precord.filerecords])}\""
 
             #Grep by searched folders
-            grep_folders_searched = f" | grep -E \"^{'|^'.join(list(set([d for frecord in precord.filerecords for d in frecord.search_in])))}\"".replace("HOMESEARCH","GREPHOMESEARCH")
+            grep_folders_searched = f""" | grep -E \"^{'|^'.join(list({d for frecord in precord.filerecords for d in frecord.search_in}))}\"""".replace(
+                "HOMESEARCH", "GREPHOMESEARCH"
+            )
 
             #Grep extra paths. They are accumulative between files of the same PEASRecord
             grep_extra_paths = ""
             if any(True for frecord in precord.filerecords if frecord.check_extra_path):
-                grep_extra_paths = f" | grep -E '{'|'.join(list(set([frecord.check_extra_path for frecord in precord.filerecords if frecord.check_extra_path])))}'"
-            
+                grep_extra_paths = f" | grep -E '{'|'.join(list({frecord.check_extra_path for frecord in precord.filerecords if frecord.check_extra_path}))}'"
+
             #Grep to remove paths. They are accumulative between files of the same PEASRecord
             grep_remove_path = ""
             if any(True for frecord in precord.filerecords if frecord.remove_path):
-                grep_remove_path = f" | grep -v -E '{'|'.join(list(set([frecord.remove_path for frecord in precord.filerecords if frecord.remove_path])))}'"
-            
+                grep_remove_path = f" | grep -v -E '{'|'.join(list({frecord.remove_path for frecord in precord.filerecords if frecord.remove_path}))}'"
+
             #Construct the final line like: STORAGE_MYSQL=$(echo "$FIND_DIR_ETC\n$FIND_DIR_USR\n$FIND_DIR_VAR\n$FIND_DIR_MNT" | grep -E '^/etc/.*mysql|/usr/var/lib/.*mysql|/var/lib/.*mysql' | grep -v "mysql/mysql")
             storage_line = storage_line.replace(STORAGE_LINE_EXTRA_MARKUP, f"{grep_remove_path}{grep_extra_paths}{grep_folders_searched}{grep_names}")
             storage_line = f"{bash_storage_var}={storage_line}"
             storages.append(storage_line)
-        
+
         return storages
 
     def __generate_sections(self) -> dict:
@@ -256,13 +254,13 @@ class LinpeasBuilder:
 
                 for exec_line in precord.exec:
                     if exec_line:
-                        section += "    " + exec_line + "\n"
+                        section += f"    {exec_line}" + "\n"
 
                 for frecord in precord.filerecords:
-                    section += "    " + self.__construct_file_line(precord, frecord) + "\n"
-                
+                    section += f"    {self.__construct_file_line(precord, frecord)}" + "\n"
+
                 section += "fi\n"
-                
+
                 sections[precord.name] = section
 
         return sections
@@ -271,11 +269,16 @@ class LinpeasBuilder:
         real_regex = frecord.regex[1:] if frecord.regex.startswith("*") and len(frecord.regex) > 1 else frecord.regex
         real_regex = real_regex.replace(".","\\.").replace("*",".*")
         real_regex += "$"
-        
+
         analise_line = ""
         if init:
             analise_line = 'if ! [ "`echo \\\"$PSTORAGE_'+precord.bash_name+'\\\" | grep -E \\\"'+real_regex+'\\\"`" ]; then if [ "$DEBUG" ]; then echo_not_found "'+frecord.regex+'"; fi; fi; '
-            analise_line += 'printf "%s" "$PSTORAGE_'+precord.bash_name+'" | grep -E "'+real_regex+'" | while read f; do ls -ld "$f" 2>/dev/null | sed -${E} "s,'+real_regex+',${SED_RED},"; '
+            analise_line += (
+                f'printf "%s" "$PSTORAGE_{precord.bash_name}" | grep -E "{real_regex}'
+                + '" | while read f; do ls -ld "$f" 2>/dev/null | sed -${E} "s,'
+                + real_regex
+                + ',${SED_RED},"; '
+            )
 
         #If just list, just list the file/directory
         if frecord.just_list_file:
@@ -283,9 +286,8 @@ class LinpeasBuilder:
                 analise_line += 'ls -lRA "$f";'
             analise_line += 'done; echo "";'
             return analise_line
-        
+
         if frecord.type == "f":
-            grep_empty_lines = ' | grep -IEv "^$"'
             grep_line_grep = f' | grep -E {frecord.line_grep}' if frecord.line_grep else ""
             grep_only_bad_lines = f' | grep -E "{frecord.bad_regex}"' if frecord.bad_regex else ""
             grep_remove_regex = f' | grep -Ev "{frecord.remove_regex}"' if frecord.remove_regex else ""
@@ -293,12 +295,8 @@ class LinpeasBuilder:
             sed_very_bad_regex = ' | sed -${E} "s,'+frecord.very_bad_regex+',${SED_RED_YELLOW},g"' if frecord.very_bad_regex else ""
             sed_good_regex = ' | sed -${E} "s,'+frecord.good_regex+',${SED_GOOD},g"' if frecord.good_regex else ""
 
-            if init:
-                analise_line += 'cat "$f" 2>/dev/null'
-            else:
-                analise_line += 'cat "$ff" 2>/dev/null'
-
-            if grep_empty_lines:
+            analise_line += 'cat "$f" 2>/dev/null' if init else 'cat "$ff" 2>/dev/null'
+            if grep_empty_lines := ' | grep -IEv "^$"':
                 analise_line += grep_empty_lines
 
             if grep_line_grep:
@@ -309,16 +307,16 @@ class LinpeasBuilder:
 
             if grep_remove_regex:
                 analise_line += grep_remove_regex
-            
+
             if sed_bad_regex:
                 analise_line += sed_bad_regex
-            
+
             if sed_very_bad_regex:
                 analise_line += sed_very_bad_regex
 
             if sed_good_regex:
                 analise_line += sed_good_regex
-            
+
             analise_line += '; done; echo "";'
             return analise_line
 
@@ -328,7 +326,13 @@ class LinpeasBuilder:
                 ff_real_regex = ffrecord.regex[1:] if ffrecord.regex.startswith("*") and ffrecord.regex != "*" else ffrecord.regex
                 ff_real_regex = ff_real_regex.replace("*",".*")
                 #analise_line += 'for ff in $(find "$f" -name "'+ffrecord.regex+'"); do ls -ld "$ff" | sed -${E} "s,'+ff_real_regex+',${SED_RED},"; ' + self.__construct_file_line(precord, ffrecord, init=False)
-                analise_line += 'find "$f" -name "'+ffrecord.regex+'" | while read ff; do ls -ld "$ff" | sed -${E} "s,'+ff_real_regex+',${SED_RED},"; ' + self.__construct_file_line(precord, ffrecord, init=False)
+                analise_line += (
+                    f'find "$f" -name "{ffrecord.regex}'
+                    + '" | while read ff; do ls -ld "$ff" | sed -${E} "s,'
+                    + ff_real_regex
+                    + ',${SED_RED},"; '
+                    + self.__construct_file_line(precord, ffrecord, init=False)
+                )
 
         analise_line += 'done; echo "";'
         return analise_line
@@ -363,12 +367,12 @@ class LinpeasBuilder:
         for b in bins:
             rb = requests.get(f"https://raw.githubusercontent.com/GTFOBins/GTFOBins.github.io/master/_gtfobins/{b}.md")
             if "sudo:" in rb.text:
-                sudoVB.append(b+"$")
+                sudoVB.append(f"{b}$")
             if "suid:" in rb.text:
-                suidVB.append("/"+b+"$")
+                suidVB.append(f"/{b}$")
             if "capabilities:" in rb.text:
                 capsVB.append(b)
-        
+
         return (suidVB, sudoVB, capsVB)
     
     def __generate_regexes_search(self) -> str:
@@ -388,22 +392,31 @@ class LinpeasBuilder:
                 regex = regex.replace('"', '\\"').strip()
                 extra_grep = entry.get("extra_grep")
                 extra_grep = f"| grep {extra_grep}" if extra_grep else ""
-                
+
                 regexes_search_section += f'print_3title_no_nl "Searching {name} (limited to 50)..."\n'
 
                 # If custom folder to search in
                 regexes_search_section += 'if [ "$SEARCH_IN_FOLDER" ]; then\n'
                 regexes_search_section += "  timeout 120 find \"$ROOT_FOLDER\" -type f -not -path \"*/node_modules/*\" -exec grep -HnRiIE \""+regex+"\" '{}' \; 2>/dev/null "+extra_grep+" | sed '/^.\{150\}./d' | sort | uniq | head -n 50 &\n"
-                
+
                 # If search in all the file system
                 regexes_search_section += 'else\n'
                 for path in paths_to_search:
                     grep_flags = "-HnRiIE" if caseinsensitive else "-HnRIE"
-                    regexes_search_section += "  timeout 120 find "+path+" -type f -not -path \"*/node_modules/*\" -exec grep "+grep_flags+" \""+regex+"\" '{}' \; 2>/dev/null "+extra_grep+" | sed '/^.\{150\}./d' | sort | uniq | head -n 50 &\n"
+                    regexes_search_section += (
+                        f"  timeout 120 find {path}"
+                        + " -type f -not -path \"*/node_modules/*\" -exec grep "
+                        + grep_flags
+                        + " \""
+                        + regex
+                        + "\" '{}' \; 2>/dev/null "
+                        + extra_grep
+                        + " | sed '/^.\{150\}./d' | sort | uniq | head -n 50 &\n"
+                    )
                 regexes_search_section += 'fi\n'
-                
+
                 regexes_search_section += "wait\n"
-            
+
             regexes_search_section += "echo ''\n"
 
         return regexes_search_section
@@ -423,9 +436,10 @@ class LinpeasBuilder:
             if not rm_startswith:
                 f.write(self.linpeas_sh)
             else:
-                tmp_linpeas = ""
-                for line in self.linpeas_sh.splitlines():
-                    if not line.startswith(rm_startswith):
-                        tmp_linpeas += line + "\n"
+                tmp_linpeas = "".join(
+                    line + "\n"
+                    for line in self.linpeas_sh.splitlines()
+                    if not line.startswith(rm_startswith)
+                )
                 f.write(tmp_linpeas)
     

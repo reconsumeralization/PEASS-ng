@@ -11,15 +11,10 @@ class PEASLoaded:
             if "linpeas" in str(record_value["config"].get("disable","")).lower():
                 continue
 
-            filerecords = []
-            for filerecord in record_value["files"]:
-                filerecords.append(
-                    FileRecord(
-                        regex=filerecord["name"],
-                        **filerecord["value"]
-                    )
-                )
-            
+            filerecords = [
+                FileRecord(regex=filerecord["name"], **filerecord["value"])
+                for filerecord in record_value["files"]
+            ]
             name = record["name"]
             self.peasrecords.append(
                 PEASRecord(
