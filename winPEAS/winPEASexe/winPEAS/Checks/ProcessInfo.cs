@@ -14,7 +14,7 @@ namespace winPEAS.Checks
 
             new List<Action>
             {
-                //PrintInterestingProcesses,
+                PrintInterestingProcesses,
                 PrintVulnLeakedHandlers,
             }.ForEach(action => CheckRunner.Run(action, isDebug));
         }
@@ -24,7 +24,7 @@ namespace winPEAS.Checks
             try
             {
                 Beaprint.MainPrint("Interesting Processes -non Microsoft-");
-                Beaprint.LinkPrint("https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation#running-processes", "Check if any interesting processes for memory dump or if you could overwrite some binary running");
+                Beaprint.LinkPrint("https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/index.html#running-processes", "Check if any interesting processes for memory dump or if you could overwrite some binary running");
                 List<Dictionary<string, string>> processesInfo = ProcessesInfo.GetProcInfo();
 
                 foreach (Dictionary<string, string> procInfo in processesInfo)
@@ -36,11 +36,14 @@ namespace winPEAS.Checks
                             { "Possible DLL Hijacking.*", Beaprint.ansi_color_bad },
                         };
 
-                    if (DefensiveProcesses.Definitions.ContainsKey(procInfo["Name"]))
+                    // we need to find first occurrence of the procinfo name
+                    string processNameSanitized = procInfo["Name"].Trim().ToLower();
+
+                    if (DefensiveProcesses.AVVendorsByProcess.ContainsKey(processNameSanitized))
                     {
-                        if (!string.IsNullOrEmpty(DefensiveProcesses.Definitions[procInfo["Name"]]))
+                        if (DefensiveProcesses.AVVendorsByProcess[processNameSanitized].Count > 0)
                         {
-                            procInfo["Product"] = DefensiveProcesses.Definitions[procInfo["Name"]];
+                            procInfo["Product"] = string.Join(", ", DefensiveProcesses.AVVendorsByProcess[processNameSanitized]);
                         }
                         colorsP[procInfo["Product"]] = Beaprint.ansi_color_good;
                     }
@@ -87,21 +90,34 @@ namespace winPEAS.Checks
 
         void PrintVulnLeakedHandlers()
         {
-            Beaprint.MainPrint("Vulnerable Leaked Handlers");
-            Beaprint.LinkPrint("https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation/leaked-handle-exploitation");
-
-            List<Dictionary<string, string>> vulnHandlers = ProcessesInfo.GetVulnHandlers();
-            foreach (Dictionary<string, string> handler in vulnHandlers)
+            try
             {
-                Dictionary<string, string> colors = new Dictionary<string, string>()
+                Beaprint.MainPrint("Vulnerable Leaked Handlers");
+                Beaprint.LinkPrint("https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/index.html#leaked-handlers");
+
+                List<Dictionary<string, string>> vulnHandlers = new List<Dictionary<string, string>>(); 
+
+                Beaprint.InfoPrint("Getting Leaked Handlers, it might take some time...");
+                using (var progress = new ProgressBar())
+                {
+                    vulnHandlers = ProcessesInfo.GetVulnHandlers(progress);
+                }
+
+                foreach (Dictionary<string, string> handler in vulnHandlers)
+                {
+                    Dictionary<string, string> colors = new Dictionary<string, string>()
                     {
                         { Checks.CurrentUserName, Beaprint.ansi_color_bad },
                         { handler["Reason"], Beaprint.ansi_color_bad },
                     };
 
-                Beaprint.DictPrint(vulnHandlers, colors, true);
+                    Beaprint.DictPrint(vulnHandlers, colors, true);
+                }
             }
-
+            catch (Exception ex)
+            {
+                Beaprint.PrintException(ex.Message);
+            }
         }
     }
 }

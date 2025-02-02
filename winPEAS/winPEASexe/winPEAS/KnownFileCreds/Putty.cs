@@ -57,7 +57,7 @@ namespace winPEAS.KnownFileCreds
             try
             {
                 Beaprint.MainPrint("SSH keys in registry");
-                Beaprint.LinkPrint("https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation#ssh-keys-in-registry", "If you find anything here, follow the link to learn how to decrypt the SSH keys");
+                Beaprint.LinkPrint("https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/index.html#ssh-keys-in-registry", "If you find anything here, follow the link to learn how to decrypt the SSH keys");
 
                 string[] ssh_reg = RegistryHelper.GetRegSubkeys("HKCU", @"OpenSSH\Agent\Keys");
                 if (ssh_reg.Length == 0)
@@ -129,6 +129,24 @@ namespace winPEAS.KnownFileCreds
             else
             {
                 string[] subKeys = RegistryHelper.GetRegSubkeys("HKCU", "Software\\SimonTatham\\PuTTY\\Sessions\\");
+                RegistryKey selfKey = Registry.CurrentUser.OpenSubKey(@"Software\\SimonTatham\\PuTTY\\Sessions"); // extract own Sessions registry keys           
+
+                if (selfKey != null)
+                {
+                    string[] subKeyNames = selfKey.GetValueNames();
+                    foreach (string name in subKeyNames)
+                    {
+                        Dictionary<string, string> putty_sess_key = new Dictionary<string, string>()
+                        {
+                            { "RegKey Name", name },
+                            { "RegKey Value", (string)selfKey.GetValue(name) },
+                        };
+
+                        results.Add(putty_sess_key);
+                    }
+                    selfKey.Close();
+                }
+                
                 foreach (string sessionName in subKeys)
                 {
                     Dictionary<string, string> putty_sess = new Dictionary<string, string>()
