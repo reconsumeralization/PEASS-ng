@@ -62,7 +62,7 @@ namespace winPEAS.Info.SystemInfo
             report.MatchedProducts = matchedProducts.OrderBy(p => p).ToList();
             report.TotalMatchedBeforeFiltering = matchedEntries.Count;
 
-            var filteredVulns = FilterPatchedVulnerabilities(matchedEntries, installedHotfixes);
+            var filteredVulns = FilterPatchedVulnerabilities(matchedEntries, installedHotfixes, definitions.kb_supersedes);
             var vulnById = new Dictionary<string, WindowsVersionVulnEntry>(StringComparer.OrdinalIgnoreCase);
             AddEntries(filteredVulns, vulnById);
 
@@ -168,89 +168,56 @@ namespace winPEAS.Info.SystemInfo
             return hotfixes;
         }
 
-        private static List<WindowsVersionVulnEntry> FilterPatchedVulnerabilities(List<WindowsVersionVulnEntry> entries, HashSet<string> installedHotfixes)
+        private static List<WindowsVersionVulnEntry> FilterPatchedVulnerabilities(
+            List<WindowsVersionVulnEntry> entries,
+            HashSet<string> installedHotfixes,
+            Dictionary<string, List<string>> kbSupersedes)
         {
             if (entries.Count == 0)
             {
                 return entries;
             }
 
-            var relevant = entries.Select(e => new RelevantVuln
-            {
-                Entry = e,
-                Relevant = true
-            }).ToList();
-
-            var initialHotfixes = new HashSet<string>(installedHotfixes, StringComparer.OrdinalIgnoreCase);
-
-            // This mirrors WES behavior to allow recursive supersedence pruning.
-            foreach (var rv in relevant)
-            {
-                foreach (var ss in ParseSupersedes(rv.Entry.supersedes))
+            var suppressed = ExpandSupersededHotfixes(installedHotfixes, kbSupersedes);
+            return entries
+                .Where(entry =>
                 {
-                    initialHotfixes.Add(ss);
-                }
-            }
-
-            MarkSupersededHotfixes(relevant, initialHotfixes, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-
-            var supersedes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var rv in relevant.Where(r => r.Relevant))
-            {
-                foreach (var ss in ParseSupersedes(rv.Entry.supersedes))
-                {
-                    supersedes.Add(ss);
-                }
-            }
-
-            foreach (var rv in relevant.Where(r => r.Relevant))
-            {
-                if (!string.IsNullOrWhiteSpace(rv.Entry.kb) && supersedes.Contains(rv.Entry.kb))
-                {
-                    rv.Relevant = false;
-                }
-            }
-
-            return relevant.Where(r => r.Relevant).Select(r => r.Entry).ToList();
+                    if (string.IsNullOrWhiteSpace(entry.kb))
+                    {
+                        return true;
+                    }
+                    return !suppressed.Contains(entry.kb);
+                })
+                .ToList();
         }
 
-        private static void MarkSupersededHotfixes(List<RelevantVuln> relevant, HashSet<string> hotfixes, HashSet<string> visited)
+        private static HashSet<string> ExpandSupersededHotfixes(HashSet<string> installedHotfixes, Dictionary<string, List<string>> kbSupersedes)
         {
-            foreach (var hotfix in hotfixes)
+            var suppressed = new HashSet<string>(installedHotfixes, StringComparer.OrdinalIgnoreCase);
+            if (kbSupersedes == null || kbSupersedes.Count == 0)
             {
-                MarkHotfixAndChildren(relevant, hotfix, visited);
+                return suppressed;
             }
-        }
 
-        private static void MarkHotfixAndChildren(List<RelevantVuln> relevant, string hotfix, HashSet<string> visited)
-        {
-            if (string.IsNullOrWhiteSpace(hotfix) || visited.Contains(hotfix))
+            var queue = new Queue<string>(installedHotfixes);
+            while (queue.Count > 0)
             {
-                return;
-            }
-            visited.Add(hotfix);
-
-            foreach (var rv in relevant.Where(r => r.Relevant && string.Equals(r.Entry.kb, hotfix, StringComparison.OrdinalIgnoreCase)))
-            {
-                rv.Relevant = false;
-                foreach (var child in ParseSupersedes(rv.Entry.supersedes))
+                var current = queue.Dequeue();
+                if (!kbSupersedes.TryGetValue(current, out var children) || children == null)
                 {
-                    MarkHotfixAndChildren(relevant, child, visited);
+                    continue;
+                }
+
+                foreach (var child in children)
+                {
+                    if (suppressed.Add(child))
+                    {
+                        queue.Enqueue(child);
+                    }
                 }
             }
-        }
 
-        private static IEnumerable<string> ParseSupersedes(string supersedes)
-        {
-            if (string.IsNullOrWhiteSpace(supersedes))
-            {
-                return Enumerable.Empty<string>();
-            }
-
-            return supersedes
-                .Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => s.Trim())
-                .Where(s => !string.IsNullOrWhiteSpace(s));
+            return suppressed;
         }
 
         private static List<string> BuildCandidateProducts(Dictionary<string, string> basicInfo)
@@ -457,6 +424,7 @@ namespace winPEAS.Info.SystemInfo
     {
         public string generated { get; set; }
         public Dictionary<string, List<WindowsVersionVulnEntry>> products { get; set; }
+        public Dictionary<string, List<string>> kb_supersedes { get; set; }
     }
 
     internal class WindowsVersionVulnEntry
@@ -465,12 +433,5 @@ namespace winPEAS.Info.SystemInfo
         public string kb { get; set; }
         public string severity { get; set; }
         public string impact { get; set; }
-        public string supersedes { get; set; }
-    }
-
-    internal class RelevantVuln
-    {
-        public WindowsVersionVulnEntry Entry { get; set; }
-        public bool Relevant { get; set; }
     }
 }

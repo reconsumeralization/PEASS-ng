@@ -34,18 +34,27 @@ def build_definitions(definitions_zip: Path) -> dict:
         rows.extend(_read_csv_from_zip(zf, "Custom_"))
 
     products: dict[str, dict[str, dict[str, str]]] = defaultdict(dict)
+    kb_supersedes: dict[str, set[str]] = defaultdict(set)
     for row in rows:
-        if not (row.get("Exploits") or "").strip():
-            continue
-
         product = (row.get("AffectedProduct") or "").strip()
-        if not product:
-            continue
         if "windows" not in product.lower():
             continue
 
-        cve = (row.get("CVE") or "").strip()
         kb = (row.get("BulletinKB") or "").strip()
+        supersedes = (row.get("Supersedes") or "").strip()
+        if kb and supersedes:
+            for item in supersedes.split(";"):
+                item = item.strip()
+                if item:
+                    kb_supersedes[kb].add(item)
+
+        if not (row.get("Exploits") or "").strip():
+            continue
+
+        if not product:
+            continue
+
+        cve = (row.get("CVE") or "").strip()
         vuln_key = cve or f"KB{kb}"
         if not vuln_key:
             continue
@@ -58,13 +67,14 @@ def build_definitions(definitions_zip: Path) -> dict:
             "kb": kb,
             "severity": (row.get("Severity") or "").strip(),
             "impact": (row.get("Impact") or "").strip(),
-            "supersedes": (row.get("Supersedes") or "").strip(),
         }
 
-    data = {"generated": generated, "products": {}}
+    data = {"generated": generated, "products": {}, "kb_supersedes": {}}
     for product in sorted(products):
         entries = [products[product][key] for key in sorted(products[product])]
         data["products"][product] = entries
+    for kb in sorted(kb_supersedes):
+        data["kb_supersedes"][kb] = sorted(kb_supersedes[kb])
 
     return data
 
