@@ -48,20 +48,29 @@ namespace winPEAS.Info.SystemInfo
 
             report.DefinitionsDate = definitions.generated ?? "";
             report.CandidateProducts = BuildCandidateProducts(basicInfo);
+            var installedHotfixes = GetInstalledHotfixes(basicInfo);
+            report.InstalledHotfixesCount = installedHotfixes.Count;
 
             var matchedProducts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var vulnById = new Dictionary<string, WindowsVersionVulnEntry>(StringComparer.OrdinalIgnoreCase);
+            var matchedEntries = new List<WindowsVersionVulnEntry>();
 
             foreach (var candidate in report.CandidateProducts)
             {
-                AddProductMatches(definitions.products, candidate, matchedProducts, vulnById);
+                AddProductMatches(definitions.products, candidate, matchedProducts, matchedEntries);
             }
 
             report.MatchedProducts = matchedProducts.OrderBy(p => p).ToList();
+            report.TotalMatchedBeforeFiltering = matchedEntries.Count;
+
+            var filteredVulns = FilterPatchedVulnerabilities(matchedEntries, installedHotfixes);
+            var vulnById = new Dictionary<string, WindowsVersionVulnEntry>(StringComparer.OrdinalIgnoreCase);
+            AddEntries(filteredVulns, vulnById);
+
             report.Vulnerabilities = vulnById.Values
                 .OrderByDescending(v => GetSeverityPriority(v.severity))
                 .ThenBy(v => string.IsNullOrEmpty(v.cve) ? v.kb : v.cve, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+            report.FilteredByPatches = report.TotalMatchedBeforeFiltering - report.Vulnerabilities.Count;
 
             return report;
         }
@@ -70,7 +79,7 @@ namespace winPEAS.Info.SystemInfo
             Dictionary<string, List<WindowsVersionVulnEntry>> products,
             string candidate,
             HashSet<string> matchedProducts,
-            Dictionary<string, WindowsVersionVulnEntry> vulnById)
+            List<WindowsVersionVulnEntry> matchedEntries)
         {
             if (string.IsNullOrWhiteSpace(candidate))
             {
@@ -89,7 +98,7 @@ namespace winPEAS.Info.SystemInfo
                 if (products.TryGetValue(candidateVariant, out var exactEntries))
                 {
                     matchedProducts.Add(candidateVariant);
-                    AddEntries(exactEntries, vulnById);
+                    matchedEntries.AddRange(exactEntries);
                 }
             }
 
@@ -103,7 +112,7 @@ namespace winPEAS.Info.SystemInfo
                 if (kv.Key.StartsWith(candidate, StringComparison.OrdinalIgnoreCase))
                 {
                     matchedProducts.Add(kv.Key);
-                    AddEntries(kv.Value, vulnById);
+                    matchedEntries.AddRange(kv.Value);
                 }
             }
         }
@@ -140,6 +149,108 @@ namespace winPEAS.Info.SystemInfo
                 default:
                     return 0;
             }
+        }
+
+        private static HashSet<string> GetInstalledHotfixes(Dictionary<string, string> basicInfo)
+        {
+            var hotfixes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            string text = GetValue(basicInfo, "Hotfixes");
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return hotfixes;
+            }
+
+            foreach (Match match in Regex.Matches(text, @"KB(\d+)", RegexOptions.IgnoreCase))
+            {
+                hotfixes.Add(match.Groups[1].Value);
+            }
+
+            return hotfixes;
+        }
+
+        private static List<WindowsVersionVulnEntry> FilterPatchedVulnerabilities(List<WindowsVersionVulnEntry> entries, HashSet<string> installedHotfixes)
+        {
+            if (entries.Count == 0)
+            {
+                return entries;
+            }
+
+            var relevant = entries.Select(e => new RelevantVuln
+            {
+                Entry = e,
+                Relevant = true
+            }).ToList();
+
+            var initialHotfixes = new HashSet<string>(installedHotfixes, StringComparer.OrdinalIgnoreCase);
+
+            // This mirrors WES behavior to allow recursive supersedence pruning.
+            foreach (var rv in relevant)
+            {
+                foreach (var ss in ParseSupersedes(rv.Entry.supersedes))
+                {
+                    initialHotfixes.Add(ss);
+                }
+            }
+
+            MarkSupersededHotfixes(relevant, initialHotfixes, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+
+            var supersedes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var rv in relevant.Where(r => r.Relevant))
+            {
+                foreach (var ss in ParseSupersedes(rv.Entry.supersedes))
+                {
+                    supersedes.Add(ss);
+                }
+            }
+
+            foreach (var rv in relevant.Where(r => r.Relevant))
+            {
+                if (!string.IsNullOrWhiteSpace(rv.Entry.kb) && supersedes.Contains(rv.Entry.kb))
+                {
+                    rv.Relevant = false;
+                }
+            }
+
+            return relevant.Where(r => r.Relevant).Select(r => r.Entry).ToList();
+        }
+
+        private static void MarkSupersededHotfixes(List<RelevantVuln> relevant, HashSet<string> hotfixes, HashSet<string> visited)
+        {
+            foreach (var hotfix in hotfixes)
+            {
+                MarkHotfixAndChildren(relevant, hotfix, visited);
+            }
+        }
+
+        private static void MarkHotfixAndChildren(List<RelevantVuln> relevant, string hotfix, HashSet<string> visited)
+        {
+            if (string.IsNullOrWhiteSpace(hotfix) || visited.Contains(hotfix))
+            {
+                return;
+            }
+            visited.Add(hotfix);
+
+            foreach (var rv in relevant.Where(r => r.Relevant && string.Equals(r.Entry.kb, hotfix, StringComparison.OrdinalIgnoreCase)))
+            {
+                rv.Relevant = false;
+                foreach (var child in ParseSupersedes(rv.Entry.supersedes))
+                {
+                    MarkHotfixAndChildren(relevant, child, visited);
+                }
+            }
+        }
+
+        private static IEnumerable<string> ParseSupersedes(string supersedes)
+        {
+            if (string.IsNullOrWhiteSpace(supersedes))
+            {
+                return Enumerable.Empty<string>();
+            }
+
+            return supersedes
+                .Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim())
+                .Where(s => !string.IsNullOrWhiteSpace(s));
         }
 
         private static List<string> BuildCandidateProducts(Dictionary<string, string> basicInfo)
@@ -337,6 +448,9 @@ namespace winPEAS.Info.SystemInfo
         public List<string> CandidateProducts { get; set; } = new List<string>();
         public List<string> MatchedProducts { get; set; } = new List<string>();
         public List<WindowsVersionVulnEntry> Vulnerabilities { get; set; } = new List<WindowsVersionVulnEntry>();
+        public int InstalledHotfixesCount { get; set; }
+        public int TotalMatchedBeforeFiltering { get; set; }
+        public int FilteredByPatches { get; set; }
     }
 
     internal class WindowsVersionDefinitions
@@ -351,5 +465,12 @@ namespace winPEAS.Info.SystemInfo
         public string kb { get; set; }
         public string severity { get; set; }
         public string impact { get; set; }
+        public string supersedes { get; set; }
+    }
+
+    internal class RelevantVuln
+    {
+        public WindowsVersionVulnEntry Entry { get; set; }
+        public bool Relevant { get; set; }
     }
 }

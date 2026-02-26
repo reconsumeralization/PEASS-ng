@@ -107,7 +107,7 @@ namespace winPEAS.Checks
                 Beaprint.MainPrint("Basic System Information");
                 Beaprint.LinkPrint("https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/index.html#version-exploits", "Check if the Windows versions is vulnerable to some known exploit");
                 Dictionary<string, string> basicDictSystem = Info.SystemInfo.SystemInfo.GetBasicOSInfo();
-                _basicSystemInfo = basicDictSystem;
+                _basicSystemInfo = new Dictionary<string, string>(basicDictSystem);
                 basicDictSystem["Hotfixes"] = Beaprint.ansi_color_good + basicDictSystem["Hotfixes"] + Beaprint.NOCOLOR;
                 Dictionary<string, string> colorsSI = new Dictionary<string, string>
                 {
@@ -142,6 +142,11 @@ namespace winPEAS.Checks
                 {
                     Beaprint.InfoPrint("Definitions date: " + report.DefinitionsDate);
                 }
+                Beaprint.InfoPrint("Installed hotfixes detected: " + report.InstalledHotfixesCount);
+                if (report.TotalMatchedBeforeFiltering > 0)
+                {
+                    Beaprint.InfoPrint($"Pre-filter matches: {report.TotalMatchedBeforeFiltering}, filtered by installed/superseded KBs: {report.FilteredByPatches}");
+                }
 
                 if (report.Vulnerabilities.Count == 0)
                 {
@@ -170,7 +175,7 @@ namespace winPEAS.Checks
                     Beaprint.InfoPrint($"Showing {maxToPrint}/{report.Vulnerabilities.Count} results.");
                 }
 
-                Beaprint.InfoPrint("This check is version-based and does not validate installed KBs.");
+                Beaprint.InfoPrint("This check applies version matching with installed/superseded KB filtering.");
             }
             catch (Exception ex)
             {

@@ -58,6 +58,7 @@ def build_definitions(definitions_zip: Path) -> dict:
             "kb": kb,
             "severity": (row.get("Severity") or "").strip(),
             "impact": (row.get("Impact") or "").strip(),
+            "supersedes": (row.get("Supersedes") or "").strip(),
         }
 
     data = {"generated": generated, "products": {}}
