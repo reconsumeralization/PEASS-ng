@@ -128,7 +128,7 @@ Once you have installed and activated it you need to:
 
 - **System Information**
   - [x] Basic System info information
-  - [x] Use WES-NG to search for vulnerabilities
+  - [x] Use embedded WES-NG definitions to flag known exploitable vulnerabilities for the running Windows version (version-based)
   - [x] Enumerate Microsoft updates
   - [x] PS, Audit, WEF and LAPS Settings
   - [x] LSA protection

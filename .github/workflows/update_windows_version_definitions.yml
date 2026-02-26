@@ -1,0 +1,35 @@
+name: Update Windows Version Definitions
+
+on:
+  schedule:
+    - cron: "17 4 */14 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-definitions:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: Update windows version definitions
+        run: python3 build_lists/update_windows_version_defs.py
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore(winpeas): update windows version vulnerability definitions"
+          title: "chore(winpeas): update windows version vulnerability definitions"
+          body: "Automated update of `build_lists/windows_version_exploits.json` from latest WES-NG definitions."
+          branch: "bot/update-windows-version-definitions"
+          delete-branch: true

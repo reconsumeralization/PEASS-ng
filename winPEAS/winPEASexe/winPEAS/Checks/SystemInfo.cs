@@ -29,6 +29,7 @@ namespace winPEAS.Checks
         static string badUAC = "No prompting|PromptForNonWindowsBinaries";
         static string goodUAC = "PromptPermitDenyOnSecureDesktop";
         static string badLAPS = "LAPS not installed";
+        static Dictionary<string, string> _basicSystemInfo;
 
 
         private static readonly Dictionary<string, string> _asrGuids = new Dictionary<string, string>
@@ -57,6 +58,7 @@ namespace winPEAS.Checks
             new List<Action>
             {
                 PrintBasicSystemInfo,
+                PrintWindowsVersionVulnerabilities,
                 PrintMicrosoftUpdatesCOM,
                 PrintSystemLastShutdownTime,
                 PrintUserEV,
@@ -105,6 +107,7 @@ namespace winPEAS.Checks
                 Beaprint.MainPrint("Basic System Information");
                 Beaprint.LinkPrint("https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/index.html#version-exploits", "Check if the Windows versions is vulnerable to some known exploit");
                 Dictionary<string, string> basicDictSystem = Info.SystemInfo.SystemInfo.GetBasicOSInfo();
+                _basicSystemInfo = basicDictSystem;
                 basicDictSystem["Hotfixes"] = Beaprint.ansi_color_good + basicDictSystem["Hotfixes"] + Beaprint.NOCOLOR;
                 Dictionary<string, string> colorsSI = new Dictionary<string, string>
                 {
@@ -112,6 +115,62 @@ namespace winPEAS.Checks
                 };
                 Beaprint.DictPrint(basicDictSystem, colorsSI, false);
                 Console.WriteLine();
+            }
+            catch (Exception ex)
+            {
+                Beaprint.PrintException(ex.Message);
+            }
+        }
+
+        private static void PrintWindowsVersionVulnerabilities()
+        {
+            try
+            {
+                Beaprint.MainPrint("Windows Version Vulnerabilities");
+
+                var basicInfo = _basicSystemInfo ?? Info.SystemInfo.SystemInfo.GetBasicOSInfo();
+                var report = WindowsVersionVulns.GetVulnerabilityReport(basicInfo);
+
+                if (report.CandidateProducts.Count == 0)
+                {
+                    Beaprint.InfoPrint("Unable to map this OS to WES-NG product definitions.");
+                    return;
+                }
+
+                Beaprint.InfoPrint("WES-NG product candidates: " + string.Join(" | ", report.CandidateProducts));
+                if (!string.IsNullOrEmpty(report.DefinitionsDate))
+                {
+                    Beaprint.InfoPrint("Definitions date: " + report.DefinitionsDate);
+                }
+
+                if (report.Vulnerabilities.Count == 0)
+                {
+                    Beaprint.GoodPrint("No known exploited vulnerabilities matched this running Windows version.");
+                    return;
+                }
+
+                Beaprint.BadPrint($"Matched {report.Vulnerabilities.Count} known exploited vulnerabilities for this running Windows version.");
+                if (report.MatchedProducts.Count > 0)
+                {
+                    Beaprint.BadPrint("Matched products: " + string.Join(" | ", report.MatchedProducts));
+                }
+
+                int maxToPrint = 20;
+                foreach (var vuln in report.Vulnerabilities.Take(maxToPrint))
+                {
+                    string vulnId = string.IsNullOrWhiteSpace(vuln.cve) ? $"KB{vuln.kb}" : vuln.cve;
+                    string kbInfo = string.IsNullOrWhiteSpace(vuln.kb) ? "" : $" KB{vuln.kb}";
+                    string severityInfo = string.IsNullOrWhiteSpace(vuln.severity) ? "" : $" [{vuln.severity}]";
+                    string impactInfo = string.IsNullOrWhiteSpace(vuln.impact) ? "" : $" {vuln.impact}";
+                    Beaprint.BadPrint($"    {vulnId}{kbInfo}{severityInfo}{impactInfo}");
+                }
+
+                if (report.Vulnerabilities.Count > maxToPrint)
+                {
+                    Beaprint.InfoPrint($"Showing {maxToPrint}/{report.Vulnerabilities.Count} results.");
+                }
+
+                Beaprint.InfoPrint("This check is version-based and does not validate installed KBs.");
             }
             catch (Exception ex)
             {
