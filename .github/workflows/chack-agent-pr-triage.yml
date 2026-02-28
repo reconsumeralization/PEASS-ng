@@ -106,6 +106,7 @@ jobs:
         with:
           provider: codex
           model_primary: CHEAP_BUT_QUALITY
+          max_turns: 125
           main_action: peass-ng
           sub_action: Chack-Agent PR Triage
           system_prompt: |

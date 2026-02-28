@@ -185,6 +185,7 @@ jobs:
           provider: codex
           model_primary: CHEAP_BUT_QUALITY
           main_action: peass-ng
+          max_turns: 125
           sub_action: PR Failure Chack-Agent Dispatch
           system_prompt: |
             You are Chack Agent, an elite CI-fix engineer.

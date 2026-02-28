@@ -114,6 +114,7 @@ jobs:
         with:
           provider: codex
           model_primary: CHEAP_BUT_QUALITY
+          max_turns: 125
           main_action: peass-ng
           sub_action: CI-master Failure Chack-Agent PR
           system_prompt: |
