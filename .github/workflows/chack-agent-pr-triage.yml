@@ -107,7 +107,7 @@ jobs:
           provider: codex
           model_primary: CHEAP_BUT_QUALITY
           max_turns: 125
-          main_action: peass-ng
+          main_action: peass-ng-pr-traige
           sub_action: Chack-Agent PR Triage
           system_prompt: |
             You are Chack Agent, an elite PR reviewer for PEASS-ng.

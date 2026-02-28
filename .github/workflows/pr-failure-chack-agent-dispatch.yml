@@ -184,7 +184,7 @@ jobs:
         with:
           provider: codex
           model_primary: CHEAP_BUT_QUALITY
-          main_action: peass-ng
+          main_action: peass-ng-pr-failure
           max_turns: 125
           sub_action: PR Failure Chack-Agent Dispatch
           system_prompt: |

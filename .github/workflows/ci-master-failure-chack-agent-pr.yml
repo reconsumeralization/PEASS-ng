@@ -115,7 +115,7 @@ jobs:
           provider: codex
           model_primary: CHEAP_BUT_QUALITY
           max_turns: 125
-          main_action: peass-ng
+          main_action: peass-ng-master-failure
           sub_action: CI-master Failure Chack-Agent PR
           system_prompt: |
             Diagnose the failing gh actions workflow, propose the minimal and effective safe fix, and implement it.
